@@ -29,7 +29,7 @@ app.use('/contact', contactRoutes)
 
 mongoose
     .connect(MONGO_URI)
-    .then(() => console.log("MongoDB connected"))
+    .then(() => console.log("MongoDB is connected"))
     .catch((err) => console.log(err));
 
 app.listen(4500, () => console.log('Server is running on port 4500'))
