@@ -47,6 +47,12 @@ let ngoSchema = new mongoose.Schema({
         default: 'pending_verification',
     },
 
+    registrationStatus: {
+        type: String,
+        enum: ['pending_verification', 'approved', 'rejected'],
+        default: 'pending_verification',
+    },
+
     createdAt: {
         type: Date,
         default: Date.now,

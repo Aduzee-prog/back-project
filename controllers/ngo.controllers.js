@@ -26,20 +26,28 @@ const postNGOSignUp = async (req, res) => {
         password: hashedPassword,
         ngoName,
         ngoDescription: description,
-        registrationStatus: 'pending_verification'
+        registrationStatus: 'pending_verification',
+        registrationDoc: 'pending_verification'
     });
+
+    // attempt to send welcome email and include outcome in response
+    let emailResult = { success: false, message: 'Welcome email not sent' }
+    try {
+        emailResult = await sendNGOWelcomeEmail(name, email, ngoName)
+    } catch (err) {
+        console.error('Error sending NGO welcome email:', err)
+    }
 
     res.status(201).json({ 
         success: true, 
-        message: "NGO signup successful! Pending verification. Welcome email sent.", 
+        message: `NGO signup successful! Pending verification. ${emailResult.message || ''}`.trim(), 
+        emailSent: !!emailResult.success,
         user: { 
             id: newNGO._id, 
             name: newNGO.name, 
             email: newNGO.email 
         } 
     });
-
-    sendNGOWelcomeEmail(name, email, ngoName).catch(err => console.error('Background task error:', err))
 
     } catch (err) {
     console.error(err);
@@ -96,7 +104,7 @@ const postNGOSignIn = async (req, res) => {
 
 const getNGOs = async (req, res) => {
     try {
-        const ngos = await NGO.find().select('name email description registrationStatus contactPerson address');
+        const ngos = await NGO.find().select('-password');
         return res.status(200).json({ success: true, data: ngos });
     } catch (err) {
         console.error(err);

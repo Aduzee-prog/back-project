@@ -34,17 +34,24 @@ const postSignUp = async (req, res) => {
         password: hashedPassword,
     });
 
+    // attempt to send welcome email and include outcome in the response
+    let emailResult = { success: false, message: 'Welcome email not sent' }
+    try {
+        emailResult = await sendDonorWelcomeEmail(name, email)
+    } catch (err) {
+        console.error('Error sending donor welcome email:', err)
+    }
+
     res.status(201).json({ 
         success: true, 
-        message: "Signup successful! Welcome email sent.", 
+        message: `Signup successful! ${emailResult.message || ''}`.trim(), 
+        emailSent: !!emailResult.success,
         user: { 
             id: newDonor._id, 
             name: newDonor.name, 
             email: newDonor.email 
         } 
     });
-
-    sendDonorWelcomeEmail(name, email).catch(err => console.error('Background task error:', err))
 
     } catch (err) {
     console.error(err);
