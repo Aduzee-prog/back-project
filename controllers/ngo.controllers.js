@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const NGO = require('../models/ngo.models')
+const Campaign = require('../models/campaign.models')
 const { sendNGOWelcomeEmail } = require('../utils/emailService')
 
 const JWT_SECRET = process.env.JWT_SECRET
@@ -112,4 +113,54 @@ const getNGOs = async (req, res) => {
     }
 };
 
-module.exports = {postNGOSignUp, postNGOSignIn, getNGOs}
+const createCampaign = async (req, res) => {
+    const { ngoId } = req.params;
+    const { title, description, goalAmount } = req.body;
+
+    try {
+        if (!title || !description || !goalAmount) {
+            return res.status(400).json({ success: false, message: "Title, description, and goal amount are required" });
+        }
+
+        const ngo = await NGO.findById(ngoId);
+        if (!ngo) {
+            return res.status(404).json({ success: false, message: "NGO not found" });
+        }
+
+        if (ngo.status !== 'active') {
+            return res.status(403).json({ success: false, message: "Only active NGOs can create campaigns" });
+        }
+
+        const newCampaign = await Campaign.create({
+            title,
+            description,
+            ngoId,
+            goalAmount,
+            status: 'pending',
+        });
+
+        res.status(201).json({
+            success: true,
+            message: "Campaign created successfully! Pending admin approval.",
+            data: newCampaign,
+        });
+
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+const getNGOCampaigns = async (req, res) => {
+    const { ngoId } = req.params;
+
+    try {
+        const campaigns = await Campaign.find({ ngoId }).populate('ngoId', 'ngoName');
+        res.status(200).json({ success: true, data: campaigns });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+module.exports = {postNGOSignUp, postNGOSignIn, getNGOs, createCampaign, getNGOCampaigns}

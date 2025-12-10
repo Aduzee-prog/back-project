@@ -117,9 +117,73 @@ const sendContactConfirmationEmail = async (userEmail, userName) => {
     }
 }
 
+const sendDonationNotificationToNGO = async (ngoEmail, ngoName, campaignTitle, donorName, amount) => {
+    try {
+        const mailOptions = {
+            from: EMAIL_USER,
+            to: ngoEmail,
+            subject: `New Donation Received for ${campaignTitle}!`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; border-radius: 8px;">
+                    <h2 style="color: #28a745;">Thank You for Your Trust!</h2>
+                    <p style="color: #666; font-size: 16px;">Great news, <strong>${ngoName}</strong>!</p>
+                    <p style="color: #666; font-size: 16px;">Your campaign <strong>${campaignTitle}</strong> has received a new donation!</p>
+                    <div style="background-color: #fff; padding: 15px; border-left: 4px solid #28a745; border-radius: 4px; margin: 15px 0;">
+                        <p><strong>Donor Name:</strong> ${donorName}</p>
+                        <p><strong>Donation Amount:</strong> $${amount}</p>
+                        <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+                    </div>
+                    <p style="color: #666; font-size: 16px;">Every contribution brings you closer to your goal. Thank you for making a difference!</p>
+                    <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                    <p style="color: #999; font-size: 14px;">Best regards,<br><strong>Good Heart Charity Team</strong></p>
+                </div>
+            `
+        }
+
+        await transporter.sendMail(mailOptions)
+        return { success: true, message: 'Donation notification sent to NGO' }
+    } catch (err) {
+        console.error('Error sending donation notification to NGO:', err)
+        return { success: false, message: 'Failed to send donation notification' }
+    }
+}
+
+const sendDonationConfirmationToDonor = async (donorEmail, donorName, campaignTitle, amount, totalDonorsCount) => {
+    try {
+        const mailOptions = {
+            from: EMAIL_USER,
+            to: donorEmail,
+            subject: `Thank You for Your Donation to ${campaignTitle}!`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; border-radius: 8px;">
+                    <h2 style="color: #28a745;">Thank You, ${donorName}!</h2>
+                    <p style="color: #666; font-size: 16px;">Your generous donation of <strong>$${amount}</strong> to <strong>${campaignTitle}</strong> has been received successfully!</p>
+                    <div style="background-color: #fff; padding: 15px; border-left: 4px solid #007bff; border-radius: 4px; margin: 15px 0;">
+                        <p><strong>Campaign:</strong> ${campaignTitle}</p>
+                        <p><strong>Amount Donated:</strong> $${amount}</p>
+                        <p><strong>Total Campaign Donors:</strong> ${totalDonorsCount}</p>
+                        <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+                    </div>
+                    <p style="color: #666; font-size: 16px;">Your contribution is making a real difference in people's lives. Thank you for your compassion and support!</p>
+                    <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                    <p style="color: #999; font-size: 14px;">Best regards,<br><strong>Good Heart Charity Team</strong></p>
+                </div>
+            `
+        }
+
+        await transporter.sendMail(mailOptions)
+        return { success: true, message: 'Donation confirmation sent to donor' }
+    } catch (err) {
+        console.error('Error sending donation confirmation to donor:', err)
+        return { success: false, message: 'Failed to send donation confirmation' }
+    }
+}
+
 module.exports = {
     sendDonorWelcomeEmail,
     sendNGOWelcomeEmail,
     sendContactNotificationEmail,
-    sendContactConfirmationEmail
+    sendContactConfirmationEmail,
+    sendDonationNotificationToNGO,
+    sendDonationConfirmationToDonor
 }

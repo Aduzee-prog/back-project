@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const {postAdminSignUp, postAdminSignIn, getPendingNGOs, getAllNGOs, approveNGO, rejectNGO, getAllContactMessages, getUnattendedMessages, markContactAsAttended, deleteContactMessage} = require('../controllers/admin.controllers')
+const {postAdminSignUp, postAdminSignIn, getPendingNGOs, getAllNGOs, approveNGO, rejectNGO, getAllContactMessages, getUnattendedMessages, markContactAsAttended, deleteContactMessage, getPendingCampaigns, approveCampaign, rejectCampaign, getAllCampaigns} = require('../controllers/admin.controllers')
 
 router.post('/signup', postAdminSignUp)
 router.post('/signin', postAdminSignIn)
@@ -12,5 +12,9 @@ router.get('/contact-messages/all', getAllContactMessages)
 router.get('/contact-messages/unattended', getUnattendedMessages)
 router.patch('/contact-messages/:messageId/attended', markContactAsAttended)
 router.delete('/contact-messages/:messageId', deleteContactMessage)
+router.get('/campaigns/pending', getPendingCampaigns)
+router.get('/campaigns/all', getAllCampaigns)
+router.patch('/campaigns/:campaignId/approve', approveCampaign)
+router.patch('/campaigns/:campaignId/reject', rejectCampaign)
 
 module.exports = router

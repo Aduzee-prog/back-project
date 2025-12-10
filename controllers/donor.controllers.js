@@ -1,7 +1,9 @@
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const Donor = require('../models/donor.models')
-const { sendDonorWelcomeEmail } = require('../utils/emailService')
+const Campaign = require('../models/campaign.models')
+const NGO = require('../models/ngo.models')
+const { sendDonorWelcomeEmail, sendDonationConfirmationToDonor, sendDonationNotificationToNGO } = require('../utils/emailService')
 
 const JWT_SECRET = process.env.JWT_SECRET
 
@@ -111,4 +113,132 @@ const getAllDonors = async (req, res) => {
     }
 };
 
-module.exports = {getSignUp, getSignIn, postSignUp, postSignIn, getAllDonors}
+const getActiveCampaigns = async (req, res) => {
+    try {
+        const campaigns = await Campaign.find({ status: 'active' }).populate('ngoId', 'ngoName ngoDescription');
+        res.status(200).json({ success: true, data: campaigns });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+const getCampaignById = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const campaign = await Campaign.findById(campaignId).populate('ngoId', 'ngoName ngoDescription email');
+        
+        if (!campaign) {
+            return res.status(404).json({ success: false, message: "Campaign not found" });
+        }
+
+        res.status(200).json({ success: true, data: campaign });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+const donateToCampaign = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { donorId, amount } = req.body;
+
+        if (!donorId || !amount || amount <= 0) {
+            return res.status(400).json({ success: false, message: "Valid donor ID and positive amount are required" });
+        }
+
+        const donor = await Donor.findById(donorId);
+        if (!donor) {
+            return res.status(404).json({ success: false, message: "Donor not found" });
+        }
+
+        const campaign = await Campaign.findById(campaignId).populate('ngoId');
+        if (!campaign) {
+            return res.status(404).json({ success: false, message: "Campaign not found" });
+        }
+
+        if (campaign.status !== 'active') {
+            return res.status(403).json({ success: false, message: "This campaign is not currently active" });
+        }
+
+        // Check if donor already donated to this campaign
+        const existingDonation = campaign.donors.find(d => d.donorId.toString() === donorId);
+        
+        let isNewDonor = false;
+        if (!existingDonation) {
+            // New donor to this campaign
+            isNewDonor = true;
+            campaign.totalDonorsCount += 1;
+            campaign.donors.push({
+                donorId,
+                amount,
+                donatedAt: new Date(),
+            });
+        } else {
+            // Existing donor - update their donation
+            existingDonation.amount += amount;
+            existingDonation.donatedAt = new Date();
+        }
+
+        // Update raised amount
+        campaign.raisedAmount += amount;
+        await campaign.save();
+
+        // Send donation emails
+        try {
+            await Promise.all([
+                sendDonationConfirmationToDonor(donor.email, donor.name, campaign.title, amount, campaign.totalDonorsCount),
+                sendDonationNotificationToNGO(campaign.ngoId.email, campaign.ngoId.ngoName, campaign.title, donor.name, amount)
+            ]);
+        } catch (emailErr) {
+            console.error('Error sending donation emails:', emailErr);
+            // Continue even if emails fail
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Donation of $${amount} received successfully! Total donors: ${campaign.totalDonorsCount}`,
+            data: {
+                campaignId: campaign._id,
+                campaignTitle: campaign.title,
+                donorName: donor.name,
+                amount,
+                newDonor: isNewDonor,
+                totalDonorsCount: campaign.totalDonorsCount,
+                totalRaisedAmount: campaign.raisedAmount,
+                goalAmount: campaign.goalAmount,
+                percentageReached: ((campaign.raisedAmount / campaign.goalAmount) * 100).toFixed(2),
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+const getDonorDonationHistory = async (req, res) => {
+    try {
+        const { donorId } = req.params;
+
+        const campaigns = await Campaign.find({ 'donors.donorId': donorId }).populate('ngoId', 'ngoName');
+        
+        const donationHistory = campaigns.map(campaign => {
+            const donation = campaign.donors.find(d => d.donorId.toString() === donorId);
+            return {
+                campaignId: campaign._id,
+                campaignTitle: campaign.title,
+                ngoName: campaign.ngoId.ngoName,
+                amount: donation.amount,
+                donatedAt: donation.donatedAt,
+            };
+        });
+
+        res.status(200).json({ success: true, data: donationHistory });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+module.exports = {getSignUp, getSignIn, postSignUp, postSignIn, getAllDonors, getActiveCampaigns, getCampaignById, donateToCampaign, getDonorDonationHistory}

@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs')
 const Admin = require('../models/admin.models')
 const NGO = require('../models/ngo.models')
 const Contact = require('../models/contact.models')
+const Campaign = require('../models/campaign.models')
 const nodemailer = require('nodemailer')
 
 const JWT_SECRET = process.env.JWT_SECRET
@@ -270,4 +271,74 @@ const deleteContactMessage = async (req, res) => {
     }
 };
 
-module.exports = {postAdminSignUp, postAdminSignIn, getPendingNGOs, approveNGO, rejectNGO, getAllNGOs, getAllContactMessages, getUnattendedMessages, markContactAsAttended, deleteContactMessage}
+const getPendingCampaigns = async (req, res) => {
+    try {
+        const campaigns = await Campaign.find({ status: 'pending' }).populate('ngoId', 'ngoName email');
+        res.status(200).json({ success: true, data: campaigns });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+const approveCampaign = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const campaign = await Campaign.findByIdAndUpdate(
+            campaignId,
+            { status: 'active', approvedAt: new Date() },
+            { new: true }
+        ).populate('ngoId', 'ngoName email');
+
+        if (!campaign) {
+            return res.status(404).json({ success: false, message: "Campaign not found" });
+        }
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Campaign approved successfully and is now active!", 
+            data: campaign 
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+const rejectCampaign = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { rejectionReason } = req.body;
+
+        const campaign = await Campaign.findByIdAndUpdate(
+            campaignId,
+            { status: 'rejected', rejectionReason: rejectionReason || 'No reason provided' },
+            { new: true }
+        ).populate('ngoId', 'ngoName email');
+
+        if (!campaign) {
+            return res.status(404).json({ success: false, message: "Campaign not found" });
+        }
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Campaign rejected successfully", 
+            data: campaign 
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+const getAllCampaigns = async (req, res) => {
+    try {
+        const campaigns = await Campaign.find().populate('ngoId', 'ngoName email');
+        res.status(200).json({ success: true, data: campaigns });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+module.exports = {postAdminSignUp, postAdminSignIn, getPendingNGOs, approveNGO, rejectNGO, getAllNGOs, getAllContactMessages, getUnattendedMessages, markContactAsAttended, deleteContactMessage, getPendingCampaigns, approveCampaign, rejectCampaign, getAllCampaigns}
