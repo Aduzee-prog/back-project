@@ -1,0 +1,12 @@
+
+> backend@1.0.0 start
+> node index.js
+
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+Server is running on port 4500
+MongoDB is connected
+✅ Donor welcome email sent to testuser1765480669@example.com for Test User
+✅ Admin notification email sent to: timetomisin@gmail.com
+✅ User confirmation email sent to: contacttest1765480689@example.com
+✅ Emails sent successfully for message: new ObjectId('693b18f15cbb1dacab3ee874')
+✅ NGO welcome email sent to testingngo1765480707@example.com for Test NGO Foundation (Contact: John NGO Manager)
