@@ -22,6 +22,15 @@ const getTransporter = () => {
 // Initialize transporter
 const transporter = getTransporter()
 
+// Verify transporter on startup
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('❌ Email Service Verification Failed:', error.message)
+    } else {
+        console.log('✅ Email Service Ready: SMTP connection verified')
+    }
+})
+
 const sendDonorWelcomeEmail = async (donorName, donorEmail) => {
     try {
         const mailOptions = {
