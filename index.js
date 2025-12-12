@@ -1,8 +1,9 @@
+const dotenv = require('dotenv')
+dotenv.config()
+
 const express = require('express')
 const app = express()
 const PORT = process.env.PORT
-const dotenv = require('dotenv')
-dotenv.config()
 const mongoose = require('mongoose')
 const MONGO_URI = process.env.MONGO_URI
 app.set('view engine', 'ejs')
