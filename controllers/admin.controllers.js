@@ -4,6 +4,7 @@ const Admin = require('../models/admin.models')
 const NGO = require('../models/ngo.models')
 const Contact = require('../models/contact.models')
 const Campaign = require('../models/campaign.models')
+const { sendAdminWelcomeEmail } = require('../utils/emailService')
 const nodemailer = require('nodemailer')
 
 const JWT_SECRET = process.env.JWT_SECRET
@@ -101,7 +102,28 @@ const postAdminSignUp = async (req, res) => {
         password: hashedPassword,
     });
 
-    return res.status(201).json({ success: true, message: "Admin signup successful!" });
+    let emailResult = { success: false, message: 'Welcome email not sent' }
+    try {
+        emailResult = await sendAdminWelcomeEmail(email)
+        if (emailResult.success) {
+            console.log(`✅ Admin welcome email sent to ${email}`)
+        } else {
+            console.error(`⚠️ Admin welcome email failed: ${emailResult.message}`)
+        }
+    } catch (err) {
+        console.error(`❌ Error sending admin welcome email to ${email}:`, err.message || err)
+        emailResult = { success: false, message: err.message || 'Unknown error' }
+    }
+
+    return res.status(201).json({ 
+        success: true, 
+        message: `Admin signup successful! ${emailResult.message || ''}`.trim(), 
+        emailSent: !!emailResult.success,
+        user: { 
+            id: newAdmin._id, 
+            email: newAdmin.email 
+        } 
+    });
 
     } catch (err) {
     console.error(err);

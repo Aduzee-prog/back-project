@@ -63,6 +63,32 @@ const sendNGOWelcomeEmail = async (ngoContactName, ngoEmail, ngoName) => {
     }
 }
 
+const sendAdminWelcomeEmail = async (adminEmail) => {
+    try {
+        const mailOptions = {
+            from: EMAIL_USER,
+            to: adminEmail,
+            subject: 'Welcome to Good Heart Charity Admin Panel!',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; border-radius: 8px;">
+                    <h2 style="color: #333;">Welcome, Admin!</h2>
+                    <p style="color: #666; font-size: 16px;">Your admin account has been successfully created on Good Heart Charity Platform.</p>
+                    <p style="color: #666; font-size: 16px;">You now have access to the admin panel to manage NGOs, campaigns, donations, and contact messages.</p>
+                    <p style="color: #666; font-size: 16px;">Thank you for your role in supporting our charitable initiatives!</p>
+                    <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                    <p style="color: #999; font-size: 14px;">Best regards,<br><strong>Good Heart Charity Team</strong></p>
+                </div>
+            `
+        }
+
+        await transporter.sendMail(mailOptions)
+        return { success: true, message: 'Admin welcome email sent' }
+    } catch (err) {
+        console.error('Error sending admin welcome email:', err)
+        return { success: false, message: 'Failed to send welcome email' }
+    }
+}
+
 const sendContactNotificationEmail = async (contactData) => {
     try {
         const mailOptions = {
@@ -184,6 +210,7 @@ const sendDonationConfirmationToDonor = async (donorEmail, donorName, campaignTi
 module.exports = {
     sendDonorWelcomeEmail,
     sendNGOWelcomeEmail,
+    sendAdminWelcomeEmail,
     sendContactNotificationEmail,
     sendContactConfirmationEmail,
     sendDonationNotificationToNGO,
