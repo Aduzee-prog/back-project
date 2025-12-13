@@ -1,12 +1,14 @@
 const nodemailer = require('nodemailer')
 
-// Create a function to get transporter with fresh credentials each time
+let transporter = null
+let transporterReady = false
+
 const getTransporter = () => {
     const EMAIL_USER = process.env.EMAIL_USER
     const EMAIL_PASS = process.env.EMAIL_PASS
     
     if (!EMAIL_USER || !EMAIL_PASS) {
-        console.error('❌ EMAIL_USER or EMAIL_PASS not set in environment variables')
+        console.error('Email credentials not configured in environment variables')
         throw new Error('Email credentials not configured')
     }
     
@@ -15,24 +17,67 @@ const getTransporter = () => {
         auth: {
             user: EMAIL_USER,
             pass: EMAIL_PASS,
+        },
+        pool: {
+            maxConnections: 5,
+            maxMessages: 10,
+            rateDelta: 1000,
+            rateLimit: true,
         }
     })
 }
 
-// Initialize transporter
-const transporter = getTransporter()
+const verifyTransporter = (transporterInstance) => {
+    return new Promise((resolve) => {
+        transporterInstance.verify((error, success) => {
+            if (error) {
+                console.error('Email service verification failed:', error.message)
+                resolve(false)
+            } else {
+                console.log('Email service ready')
+                resolve(true)
+            }
+        })
+    })
+}
 
-// Verify transporter on startup
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('❌ Email Service Verification Failed:', error.message)
-    } else {
-        console.log('✅ Email Service Ready: SMTP connection verified')
+const initializeTransporter = async () => {
+    try {
+        transporter = getTransporter()
+        transporterReady = await verifyTransporter(transporter)
+    } catch (err) {
+        console.error('Failed to initialize email service:', err.message)
+        transporter = null
+        transporterReady = false
     }
+}
+
+const ensureTransporter = async () => {
+    if (!transporter) {
+        try {
+            transporter = getTransporter()
+            transporterReady = await verifyTransporter(transporter)
+        } catch (err) {
+            console.error('Error creating transporter:', err.message)
+            transporter = null
+            transporterReady = false
+            throw err
+        }
+    }
+    return transporter
+}
+
+initializeTransporter().catch(err => {
+    console.error('Email service startup error:', err.message)
 })
 
 const sendDonorWelcomeEmail = async (donorName, donorEmail) => {
     try {
+        if (!donorEmail || !donorName) {
+            return { success: false, message: 'Invalid recipient details' }
+        }
+
+        const currentTransporter = await ensureTransporter()
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: donorEmail,
@@ -48,17 +93,22 @@ const sendDonorWelcomeEmail = async (donorName, donorEmail) => {
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log(`✅ Donor welcome email sent to ${donorEmail}`, result.messageId)
-        return { success: true, message: 'Donor welcome email sent' }
+        const result = await currentTransporter.sendMail(mailOptions)
+        console.log(`Welcome email sent to ${donorEmail}`)
+        return { success: true, message: 'Welcome email sent' }
     } catch (err) {
-        console.error(`❌ Error sending donor welcome email to ${donorEmail}:`, err.message)
-        return { success: false, message: 'Failed to send welcome email' }
+        console.error(`Error sending welcome email to ${donorEmail}:`, err.message)
+        return { success: false, message: 'Failed to send email' }
     }
 }
 
 const sendNGOWelcomeEmail = async (ngoContactName, ngoEmail, ngoName) => {
     try {
+        if (!ngoEmail || !ngoContactName || !ngoName) {
+            return { success: false, message: 'Invalid recipient details' }
+        }
+
+        const currentTransporter = await ensureTransporter()
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: ngoEmail,
@@ -75,17 +125,22 @@ const sendNGOWelcomeEmail = async (ngoContactName, ngoEmail, ngoName) => {
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log(`✅ NGO welcome email sent to ${ngoEmail}`, result.messageId)
-        return { success: true, message: 'NGO welcome email sent' }
+        const result = await currentTransporter.sendMail(mailOptions)
+        console.log(`Welcome email sent to ${ngoEmail}`)
+        return { success: true, message: 'Welcome email sent' }
     } catch (err) {
-        console.error(`❌ Error sending NGO welcome email to ${ngoEmail}:`, err.message)
-        return { success: false, message: 'Failed to send welcome email' }
+        console.error(`Error sending welcome email to ${ngoEmail}:`, err.message)
+        return { success: false, message: 'Failed to send email' }
     }
 }
 
 const sendAdminWelcomeEmail = async (adminEmail) => {
     try {
+        if (!adminEmail) {
+            return { success: false, message: 'Invalid recipient details' }
+        }
+
+        const currentTransporter = await ensureTransporter()
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: adminEmail,
@@ -102,17 +157,27 @@ const sendAdminWelcomeEmail = async (adminEmail) => {
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log(`✅ Admin welcome email sent to ${adminEmail}`, result.messageId)
-        return { success: true, message: 'Admin welcome email sent' }
+        const result = await currentTransporter.sendMail(mailOptions)
+        console.log(`Admin welcome email sent to ${adminEmail}`)
+        return { success: true, message: 'Welcome email sent' }
     } catch (err) {
-        console.error(`❌ Error sending admin welcome email to ${adminEmail}:`, err.message)
-        return { success: false, message: 'Failed to send welcome email' }
+        console.error(`Error sending admin welcome email to ${adminEmail}:`, err.message)
+        return { success: false, message: 'Failed to send email' }
     }
 }
 
 const sendContactNotificationEmail = async (contactData) => {
     try {
+        if (!contactData || !contactData.name || !contactData.email || !contactData.subject || !contactData.message) {
+            return { success: false, message: 'Invalid contact data' }
+        }
+
+        if (!process.env.ADMIN_EMAIL) {
+            console.error('Admin email not configured')
+            return { success: false, message: 'Admin email not configured' }
+        }
+
+        const currentTransporter = await ensureTransporter()
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: process.env.ADMIN_EMAIL,
@@ -132,17 +197,22 @@ const sendContactNotificationEmail = async (contactData) => {
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log(`✅ Admin notification email sent to ${process.env.ADMIN_EMAIL}`, result.messageId)
+        const result = await currentTransporter.sendMail(mailOptions)
+        console.log(`Admin notification sent for contact: ${contactData.email}`)
         return { success: true, message: 'Email sent to admin' }
     } catch (err) {
-        console.error(`❌ Error sending admin notification email:`, err.message)
-        return { success: false, message: 'Failed to send email notification' }
+        console.error(`Error sending admin notification:`, err.message)
+        return { success: false, message: 'Failed to send email' }
     }
 }
 
 const sendContactConfirmationEmail = async (userEmail, userName) => {
     try {
+        if (!userEmail || !userName) {
+            return { success: false, message: 'Invalid recipient details' }
+        }
+
+        const currentTransporter = await ensureTransporter()
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: userEmail,
@@ -158,17 +228,22 @@ const sendContactConfirmationEmail = async (userEmail, userName) => {
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log(`✅ User confirmation email sent to ${userEmail}`, result.messageId)
+        const result = await currentTransporter.sendMail(mailOptions)
+        console.log(`Confirmation email sent to ${userEmail}`)
         return { success: true, message: 'Confirmation email sent' }
     } catch (err) {
-        console.error(`❌ Error sending user confirmation email to ${userEmail}:`, err.message)
-        return { success: false, message: 'Failed to send confirmation email' }
+        console.error(`Error sending confirmation email to ${userEmail}:`, err.message)
+        return { success: false, message: 'Failed to send email' }
     }
 }
 
 const sendDonationNotificationToNGO = async (ngoEmail, ngoName, campaignTitle, donorName, amount) => {
     try {
+        if (!ngoEmail || !ngoName || !campaignTitle || !donorName || !amount) {
+            return { success: false, message: 'Invalid donation data' }
+        }
+
+        const currentTransporter = await ensureTransporter()
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: ngoEmail,
@@ -190,17 +265,22 @@ const sendDonationNotificationToNGO = async (ngoEmail, ngoName, campaignTitle, d
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log(`✅ Donation notification sent to ${ngoEmail}`, result.messageId)
-        return { success: true, message: 'Donation notification sent to NGO' }
+        const result = await currentTransporter.sendMail(mailOptions)
+        console.log(`Donation notification sent to ${ngoEmail}`)
+        return { success: true, message: 'Email sent to NGO' }
     } catch (err) {
-        console.error(`❌ Error sending donation notification to ${ngoEmail}:`, err.message)
-        return { success: false, message: 'Failed to send donation notification' }
+        console.error(`Error sending donation notification to ${ngoEmail}:`, err.message)
+        return { success: false, message: 'Failed to send email' }
     }
 }
 
 const sendDonationConfirmationToDonor = async (donorEmail, donorName, campaignTitle, amount, totalDonorsCount) => {
     try {
+        if (!donorEmail || !donorName || !campaignTitle || !amount) {
+            return { success: false, message: 'Invalid donation data' }
+        }
+
+        const currentTransporter = await ensureTransporter()
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: donorEmail,
@@ -222,12 +302,12 @@ const sendDonationConfirmationToDonor = async (donorEmail, donorName, campaignTi
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log(`✅ Donation confirmation sent to ${donorEmail}`, result.messageId)
-        return { success: true, message: 'Donation confirmation sent to donor' }
+        const result = await currentTransporter.sendMail(mailOptions)
+        console.log(`Donation confirmation sent to ${donorEmail}`)
+        return { success: true, message: 'Email sent to donor' }
     } catch (err) {
-        console.error(`❌ Error sending donation confirmation to ${donorEmail}:`, err.message)
-        return { success: false, message: 'Failed to send donation confirmation' }
+        console.error(`Error sending donation confirmation to ${donorEmail}:`, err.message)
+        return { success: false, message: 'Failed to send email' }
     }
 }
 

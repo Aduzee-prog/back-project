@@ -16,9 +16,11 @@ const submitMessage = async (req, res) => {
             message,
         })
 
-        // Send emails but don't block the response
+        let userEmailSent = false
+        let adminEmailSent = false
+
         try {
-            await Promise.all([
+            const [adminResult, userResult] = await Promise.all([
                 sendContactNotificationEmail({
                     name,
                     email,
@@ -27,20 +29,27 @@ const submitMessage = async (req, res) => {
                 }),
                 sendContactConfirmationEmail(email, name)
             ])
-            console.log('✅ Emails sent successfully for message:', newMessage._id)
+
+            adminEmailSent = adminResult?.success ?? false
+            userEmailSent = userResult?.success ?? false
+
+            if (adminEmailSent && userEmailSent) {
+                console.log('Contact emails sent successfully')
+            }
         } catch (emailErr) {
-            console.error('⚠️ Email sending failed:', emailErr.message)
-            // Continue even if emails fail - message is still saved
+            console.error('Error sending contact emails:', emailErr.message)
         }
 
         res.status(201).json({
             success: true,
             message: "Message sent successfully! We'll get back to you soon.",
+            userEmailSent: userEmailSent,
+            adminEmailSent: adminEmailSent,
             data: newMessage
         })
 
     } catch (err) {
-        console.error('❌ Contact submission error:', err)
+        console.error('Contact submission error:', err)
         return res.status(500).json({ success: false, message: "Server Error" })
     }
 }

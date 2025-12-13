@@ -36,24 +36,24 @@ const postSignUp = async (req, res) => {
         password: hashedPassword,
     });
 
-    // attempt to send welcome email and include outcome in the response
-    let emailResult = { success: false, message: 'Welcome email not sent' }
+    let emailSent = false
     try {
-        emailResult = await sendDonorWelcomeEmail(name, email)
+        const emailResult = await sendDonorWelcomeEmail(name, email)
+        emailSent = emailResult.success
         if (emailResult.success) {
-            console.log(`✅ Donor welcome email sent to ${email} for ${name}`)
+            console.log(`Welcome email sent to ${email}`)
         } else {
-            console.error(`⚠️ Donor welcome email failed: ${emailResult.message}`)
+            console.error(`Welcome email failed for ${email}`)
         }
     } catch (err) {
-        console.error(`❌ Error sending donor welcome email to ${email}:`, err.message || err)
-        emailResult = { success: false, message: err.message || 'Unknown error' }
+        console.error(`Error sending email to ${email}:`, err.message)
+        emailSent = false
     }
 
     res.status(201).json({ 
         success: true, 
-        message: `Signup successful! ${emailResult.message || ''}`.trim(), 
-        emailSent: !!emailResult.success,
+        message: `Signup successful! Welcome email ${emailSent ? 'sent' : 'could not be sent'}.`, 
+        emailSent: emailSent,
         user: { 
             id: newDonor._id, 
             name: newDonor.name, 
@@ -168,12 +168,10 @@ const donateToCampaign = async (req, res) => {
             return res.status(403).json({ success: false, message: "This campaign is not currently active" });
         }
 
-        // Check if donor already donated to this campaign
         const existingDonation = campaign.donors.find(d => d.donorId.toString() === donorId);
         
         let isNewDonor = false;
         if (!existingDonation) {
-            // New donor to this campaign
             isNewDonor = true;
             campaign.totalDonorsCount += 1;
             campaign.donors.push({
@@ -182,24 +180,21 @@ const donateToCampaign = async (req, res) => {
                 donatedAt: new Date(),
             });
         } else {
-            // Existing donor - update their donation
             existingDonation.amount += amount;
             existingDonation.donatedAt = new Date();
         }
 
-        // Update raised amount
         campaign.raisedAmount += amount;
         await campaign.save();
 
-        // Send donation emails
         try {
             await Promise.all([
                 sendDonationConfirmationToDonor(donor.email, donor.name, campaign.title, amount, campaign.totalDonorsCount),
                 sendDonationNotificationToNGO(campaign.ngoId.email, campaign.ngoId.ngoName, campaign.title, donor.name, amount)
             ]);
+            console.log('Donation emails sent successfully')
         } catch (emailErr) {
-            console.error('Error sending donation emails:', emailErr);
-            // Continue even if emails fail
+            console.error('Error sending donation emails:', emailErr.message);
         }
 
         res.status(200).json({
