@@ -37,24 +37,22 @@ const postSignUp = async (req, res) => {
     });
 
     let emailSent = false
-    let emailError = null
     try {
         const emailResult = await sendDonorWelcomeEmail(name, email)
+        emailSent = emailResult.success
         if (emailResult.success) {
             console.log(`Welcome email sent to ${email}`)
-            emailSent = true
         } else {
-            console.error(`Welcome email failed for ${email}:`, emailResult.message)
-            emailError = emailResult.message
+            console.error(`Welcome email failed for ${email}`)
         }
     } catch (err) {
         console.error(`Error sending email to ${email}:`, err.message)
-        emailError = err.message
+        emailSent = false
     }
 
     res.status(201).json({ 
         success: true, 
-        message: `Signup successful! Welcome email ${emailSent ? 'sent' : 'could not be sent'}.${emailError ? ' Error: ' + emailError : ''}`, 
+        message: `Signup successful! Welcome email ${emailSent ? 'sent' : 'could not be sent'}.`, 
         emailSent: emailSent,
         user: { 
             id: newDonor._id, 
@@ -190,22 +188,11 @@ const donateToCampaign = async (req, res) => {
         await campaign.save();
 
         try {
-            const [donorEmailResult, ngoEmailResult] = await Promise.all([
+            await Promise.all([
                 sendDonationConfirmationToDonor(donor.email, donor.name, campaign.title, amount, campaign.totalDonorsCount),
                 sendDonationNotificationToNGO(campaign.ngoId.email, campaign.ngoId.ngoName, campaign.title, donor.name, amount)
             ]);
-            
-            if (!donorEmailResult.success) {
-                console.error(`Failed to send confirmation email to donor ${donor.email}:`, donorEmailResult.message);
-            } else {
-                console.log('Donor confirmation email sent successfully');
-            }
-            
-            if (!ngoEmailResult.success) {
-                console.error(`Failed to send notification email to NGO ${campaign.ngoId.email}:`, ngoEmailResult.message);
-            } else {
-                console.log('NGO notification email sent successfully');
-            }
+            console.log('Donation emails sent successfully')
         } catch (emailErr) {
             console.error('Error sending donation emails:', emailErr.message);
         }

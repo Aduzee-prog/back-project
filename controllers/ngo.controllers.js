@@ -32,22 +32,24 @@ const postNGOSignUp = async (req, res) => {
     });
 
     let emailSent = false
+    let emailError = null
     try {
         const emailResult = await sendNGOWelcomeEmail(name, email, ngoName)
-        emailSent = emailResult.success
         if (emailResult.success) {
             console.log(`Welcome email sent to ${email}`)
+            emailSent = true
         } else {
-            console.error(`Welcome email failed for ${email}`)
+            console.error(`Welcome email failed for ${email}:`, emailResult.message)
+            emailError = emailResult.message
         }
     } catch (err) {
         console.error(`Error sending email to ${email}:`, err.message)
-        emailSent = false
+        emailError = err.message
     }
 
     res.status(201).json({ 
         success: true, 
-        message: `NGO signup successful! Pending verification. Welcome email ${emailSent ? 'sent' : 'could not be sent'}.`, 
+        message: `NGO signup successful! Pending verification. Welcome email ${emailSent ? 'sent' : 'could not be sent'}.${emailError ? ' Error: ' + emailError : ''}`, 
         emailSent: emailSent,
         user: { 
             id: newNGO._id, 
